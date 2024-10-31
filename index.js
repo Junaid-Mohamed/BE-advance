@@ -1,61 +1,48 @@
 const express =  require("express");
 const initializeDB = require("./db/db");
 const app = express();
+const jwt = require("jsonwebtoken");
+const cors = require("cors")
 
-initializeDB();
+const JWT_SECRET = process.env.JWT_SECRET;
 
+app.use(express.json())
+app.use(cors());
 app.get('/',(req,res)=>{
     res.send("Hi world");
 })
 
-const userData = {
-    name:"John",
-    email:"john@gmail.com"
-}
+const verifyJWT = (req,res,next)=>{
+    const token = req.headers['authorization'].split(" ")[1];
+    console.log("inside verify")
+    console.log(token);
 
-const postData = {
-    title:"Test post",
-    content: "Test post content",
-    author: "67235e131e8d604ec2c3ed5c"
-}
-
-const User = require("./models/user.models");
-const Post = require("./models/post.models");
-
-const addUser = async(userData) => {
+    if(!token){
+        return res.status(401).json({message:"No token provided"})
+    }
     try{
-        const newUser = new User(userData);
-        await newUser.save()
-        console.log(newUser)
+        console.log(jwt.verify(token, JWT_SECRET));
+        next();
     }catch(error){
-        console.log(error)
+        res.status(402).json({message:"Invalid token provided"})
     }
 }
 
-// addUser(userData);
+app.post('/login', (req,res)=>{
+    const {username, password} = req.body;
 
-const addPost = async(postData) => {
-    try{
-        const newPost = new Post(postData);
-        await newPost.save();
-        console.log("Post added", newPost);
-    }catch(error){
-        console.log(error)
-        }
-    
-}
-
-// addPost(postData);
-
-const getPosts = async() =>{
-    try{
-        const posts = await Post.find().populate('author');
-        console.log(posts);
-    }catch(error){
-        console.log("error getting posts",error)
+    if(username === "admin" && password === "password"){
+        const token = jwt.sign({username,password},JWT_SECRET, {expiresIn:'1h'})
+        res.json({token})
+    }else{
+        res.json({error: 'Invalid username/password'})
     }
-}
+})
 
-getPosts();
+app.get('/admin/data', verifyJWT, (req,res)=>{
+    res.status(200).json({message:"Data accessible"})
+})
+
+
 
 app.listen(3000, ()=>console.log('App listening on port 3000'))
